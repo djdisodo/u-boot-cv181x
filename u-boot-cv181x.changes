@@ -1,0 +1,11 @@
+-------------------------------------------------------------------
+Tue Apr 07 2026 Maintainer <maintainer@example.com>
+
+- Initial OBS package for CV181x/SG2002 U-Boot multibuild.
+- Source is pulled directly from upstream U-Boot via _service.
+- Added sg2002_milkv_duo256m flavor patch set with new target config:
+  - new DTB: sg2002-milkv-duo256m.dtb
+  - new defconfig: sg2002_milkv_duo256m_defconfig
+  - distroboot preboot DTB/DTBO load from FAT
+  - UART load commands for serial boot iteration
+- Added cv1800b_milkv_duo flavor scaffold.
