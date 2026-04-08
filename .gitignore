@@ -1,0 +1,7 @@
+.work/
+dist/
+out/
+*.orig
+*.rej
+*.swp
+*~

@@ -1,0 +1,18 @@
+name: ${PKG_NAME}
+arch: riscv64
+platform: linux
+version: ${PKG_VERSION}
+release: ${PKG_RELEASE}
+section: bootloader
+priority: optional
+maintainer: ""
+description: |
+  U-Boot fip.bin package for SG2002/CV181x distroboot targets.
+homepage: https://github.com/u-boot/u-boot
+license: GPL-2.0-only
+apk:
+  signature:
+    key_file: ${APK_SIGNING_KEY_FILE}
+contents:
+  - src: out/sg2002-milkv-duo256m/fip.bin
+    dst: /root/fip.bin

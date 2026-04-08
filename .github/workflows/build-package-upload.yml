@@ -1,0 +1,265 @@
+name: Build Package Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      uboot_tag:
+        description: U-Boot tag (ex. v2026.04). Empty = latest monthly stable.
+        required: false
+        default: ""
+      dry_run:
+        description: Build only (skip R2 upload and webhook)
+        type: boolean
+        required: false
+        default: false
+  push:
+    tags:
+      - "*"
+  schedule:
+    - cron: "0 18 * * *"
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  build-package-upload:
+    runs-on: ubuntu-latest
+    env:
+      BOARD: sg2002-milkv-duo256m
+      PKG_NAME: u-boot-sg2002-milkv-duo256m-distroboot
+      UBOOT_MARKER_VARIABLE: LATEST_UPSTREAM_UBOOT_TAG
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Target Tags
+        id: tags
+        env:
+          INPUT_UBOOT_TAG: ${{ github.event.inputs.uboot_tag }}
+        run: |
+          set -euo pipefail
+          latest_uboot_tag="$(
+            git ls-remote --tags --refs https://github.com/u-boot/u-boot.git 'refs/tags/v20[0-9][0-9].[0-9][0-9]' \
+            | awk '{print $2}' \
+            | sed 's#refs/tags/##' \
+            | grep -E '^v[0-9]{4}\.[0-9]{2}$' \
+            | sort -V \
+            | tail -n1
+          )"
+          if [ -z "$latest_uboot_tag" ]; then
+            echo "failed to resolve latest upstream u-boot tag" >&2
+            exit 1
+          fi
+          latest_recipe_tag="$(git tag -l | sort -V | tail -n1 || true)"
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ -z "$latest_recipe_tag" ]; then
+            echo "failed to resolve latest recipe tag for schedule run" >&2
+            exit 1
+          fi
+          selected_uboot_tag="$latest_uboot_tag"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ -n "${INPUT_UBOOT_TAG}" ]; then
+            selected_uboot_tag="$INPUT_UBOOT_TAG"
+          fi
+          if [ -z "$selected_uboot_tag" ]; then
+            echo "selected u-boot tag is empty" >&2
+            exit 1
+          fi
+          echo "latest_uboot_tag=${latest_uboot_tag}" >> "$GITHUB_OUTPUT"
+          echo "latest_recipe_tag=${latest_recipe_tag}" >> "$GITHUB_OUTPUT"
+          echo "selected_uboot_tag=${selected_uboot_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Run Mode And Assert Environment
+        id: mode
+        env:
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+          SELECTED_UBOOT_TAG: ${{ steps.tags.outputs.selected_uboot_tag }}
+          GH_TOKEN: ${{ github.token }}
+          UBOOT_MARKER_VARIABLE: ${{ env.UBOOT_MARKER_VARIABLE }}
+          APK_SIGNING_KEY_B64: ${{ secrets.APK_SIGNING_KEY_B64 }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          INDEXBUILD_WEBHOOK_URL: ${{ secrets.INDEXBUILD_WEBHOOK_URL }}
+          INDEXBUILD_WEBHOOK_TOKEN: ${{ secrets.INDEXBUILD_WEBHOOK_TOKEN }}
+        run: |
+          set -euo pipefail
+          publish=true
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "${INPUT_DRY_RUN}" = "true" ]; then
+            publish=false
+          fi
+          run_build=true
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            : "${GH_TOKEN:?}"
+            : "${UBOOT_MARKER_VARIABLE:?}"
+            marker_file="${RUNNER_TEMP}/marker.json"
+            if gh api "repos/${GITHUB_REPOSITORY}/actions/variables/${UBOOT_MARKER_VARIABLE}" >"${marker_file}" 2>/dev/null; then
+              last_uboot_tag="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], "r", encoding="utf-8"))["value"])' "$marker_file")"
+              if [ "$last_uboot_tag" = "$SELECTED_UBOOT_TAG" ]; then
+                run_build=false
+              fi
+            fi
+          fi
+          if [ "$run_build" = "true" ]; then
+            : "${APK_SIGNING_KEY_B64:?}"
+          fi
+          if [ "$run_build" = "true" ] && [ "$publish" = "true" ]; then
+            : "${R2_ACCESS_KEY_ID:?}"
+            : "${R2_SECRET_ACCESS_KEY:?}"
+            : "${R2_ACCOUNT_ID:?}"
+            : "${R2_BUCKET:?}"
+            : "${INDEXBUILD_WEBHOOK_URL:?}"
+            : "${INDEXBUILD_WEBHOOK_TOKEN:?}"
+          fi
+          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
+          echo "run_build=${run_build}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Latest Recipe Tag
+        if: ${{ github.event_name == 'schedule' && steps.mode.outputs.run_build == 'true' }}
+        run: |
+          set -euo pipefail
+          git checkout "${{ steps.tags.outputs.latest_recipe_tag }}"
+
+      - name: Install build dependencies
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc \
+            bison \
+            build-essential \
+            curl \
+            device-tree-compiler \
+            flex \
+            libgnutls28-dev \
+            libssl-dev \
+            python3 \
+            swig \
+            gcc-riscv64-linux-gnu \
+            binutils-riscv64-linux-gnu \
+            unzip
+
+      - name: Install AWS CLI
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/awscliv2.zip https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip
+          unzip -q /tmp/awscliv2.zip -d /tmp
+          sudo /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update
+          aws --version
+
+      - name: Install nFPM
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        run: |
+          set -euo pipefail
+          nfpm_tag="$(curl -fsSL https://api.github.com/repos/goreleaser/nfpm/releases/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
+          nfpm_ver="${nfpm_tag#v}"
+          curl -fsSL -o /tmp/nfpm.tgz "https://github.com/goreleaser/nfpm/releases/download/${nfpm_tag}/nfpm_${nfpm_ver}_Linux_x86_64.tar.gz"
+          tar -C /tmp -xzf /tmp/nfpm.tgz nfpm
+          sudo install -m 0755 /tmp/nfpm /usr/local/bin/nfpm
+          nfpm --version
+
+      - name: Build fip.bin
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        env:
+          UBOOT_TAG: ${{ steps.tags.outputs.selected_uboot_tag }}
+        run: |
+          chmod +x ./ci/build_fip.sh
+          ./ci/build_fip.sh
+
+      - name: Resolve Metadata
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        id: meta
+        run: |
+          set -euo pipefail
+          source "out/${BOARD}/build.env"
+          echo "uboot_tag=$UBOOT_TAG" >> "$GITHUB_OUTPUT"
+          echo "pkg_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "pkg_release=${RELEASE}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare APK signing key
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        env:
+          APK_SIGNING_KEY_B64: ${{ secrets.APK_SIGNING_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          key_file="${RUNNER_TEMP}/apk-signing.rsa"
+          printf '%s' "${APK_SIGNING_KEY_B64}" | base64 -d > "${key_file}"
+          chmod 600 "${key_file}"
+          echo "APK_SIGNING_KEY_FILE=${key_file}" >> "$GITHUB_ENV"
+
+      - name: Build .apk package
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        env:
+          PKG_VERSION: ${{ steps.meta.outputs.pkg_version }}
+          PKG_RELEASE: ${{ steps.meta.outputs.pkg_release }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/alpine/v3.23/main/riscv64
+          nfpm pkg \
+            --packager apk \
+            --config nfpm.yaml \
+            --target "dist/alpine/v3.23/main/riscv64/"
+
+      - name: Upload workflow artifact
+        if: ${{ steps.mode.outputs.run_build == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PKG_NAME }}-${{ steps.meta.outputs.pkg_version }}
+          path: dist/alpine/v3.23/main/riscv64/*.apk
+
+      - name: Upload package to Cloudflare R2
+        if: ${{ steps.mode.outputs.run_build == 'true' && steps.mode.outputs.publish == 'true' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          object_root="alpine/v3.23/main/riscv64/"
+          dst="s3://${R2_BUCKET}/"
+          aws --endpoint-url "$endpoint" s3 cp dist/ "$dst" --recursive
+          echo "R2_OBJECT_PATH=${object_root}" >> "$GITHUB_ENV"
+
+      - name: Trigger index-build webhook URL
+        if: ${{ steps.mode.outputs.run_build == 'true' && steps.mode.outputs.publish == 'true' }}
+        env:
+          INDEXBUILD_WEBHOOK_URL: ${{ secrets.INDEXBUILD_WEBHOOK_URL }}
+          INDEXBUILD_WEBHOOK_TOKEN: ${{ secrets.INDEXBUILD_WEBHOOK_TOKEN }}
+          PKG_VERSION: ${{ steps.meta.outputs.pkg_version }}
+          UBOOT_TAG: ${{ steps.meta.outputs.uboot_tag }}
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${INDEXBUILD_WEBHOOK_TOKEN}" \
+            --data "{\"repo\":\"${GITHUB_REPOSITORY}\",\"package\":\"${PKG_NAME}\",\"version\":\"${PKG_VERSION}\",\"u_boot_tag\":\"${UBOOT_TAG}\",\"r2_object\":\"${R2_OBJECT_PATH}\"}" \
+            "$INDEXBUILD_WEBHOOK_URL"
+
+      - name: Update U-Boot Tag Marker Variable
+        if: ${{ github.event_name == 'schedule' && steps.mode.outputs.run_build == 'true' && steps.mode.outputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          UBOOT_MARKER_VARIABLE: ${{ env.UBOOT_MARKER_VARIABLE }}
+          SELECTED_UBOOT_TAG: ${{ steps.tags.outputs.selected_uboot_tag }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/${GITHUB_REPOSITORY}/actions/variables/${UBOOT_MARKER_VARIABLE}" >/dev/null 2>&1; then
+            gh api \
+              --method PATCH \
+              "repos/${GITHUB_REPOSITORY}/actions/variables/${UBOOT_MARKER_VARIABLE}" \
+              -f name="${UBOOT_MARKER_VARIABLE}" \
+              -f value="${SELECTED_UBOOT_TAG}" >/dev/null
+          else
+            gh api \
+              --method POST \
+              "repos/${GITHUB_REPOSITORY}/actions/variables" \
+              -f name="${UBOOT_MARKER_VARIABLE}" \
+              -f value="${SELECTED_UBOOT_TAG}" >/dev/null
+          fi

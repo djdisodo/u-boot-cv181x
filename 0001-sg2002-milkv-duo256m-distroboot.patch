@@ -1,5 +1,5 @@
 From 6f7a6acbab5ff110a0710b17e0ea1a226bf9df51 Mon Sep 17 00:00:00 2001
-From: OBS Maintainer <maintainer@example.com>
+From: Recipe Maintainer <maintainer@example.com>
 Date: Tue, 7 Apr 2026 05:04:25 +0900
 Subject: [PATCH] riscv: sophgo: add sg2002 duo256m distroboot defconfig and
  dtb
@@ -141,4 +141,3 @@ index 00000000..6b453e56
 +
 -- 
 2.50.0
-
