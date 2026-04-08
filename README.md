@@ -91,7 +91,7 @@ Nightly behavior:
 - `R2_SECRET_ACCESS_KEY`
 - `R2_ACCOUNT_ID`
 - `R2_BUCKET`
-- `APK_SIGNING_KEY_B64` (base64-encoded APK private key)
+- `APK_SIGNING_KEY` (APK private key)
 - `INDEXBUILD_WEBHOOK_URL`
 - `INDEXBUILD_WEBHOOK_TOKEN`
 

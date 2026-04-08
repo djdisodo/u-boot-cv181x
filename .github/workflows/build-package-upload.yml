@@ -77,7 +77,7 @@ jobs:
           SELECTED_UBOOT_TAG: ${{ steps.tags.outputs.selected_uboot_tag }}
           GH_TOKEN: ${{ github.token }}
           UBOOT_MARKER_VARIABLE: ${{ env.UBOOT_MARKER_VARIABLE }}
-          APK_SIGNING_KEY_B64: ${{ secrets.APK_SIGNING_KEY_B64 }}
+          APK_SIGNING_KEY: ${{ secrets.APK_SIGNING_KEY }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
@@ -103,7 +103,7 @@ jobs:
             fi
           fi
           if [ "$run_build" = "true" ]; then
-            : "${APK_SIGNING_KEY_B64:?}"
+            : "${APK_SIGNING_KEY:?}"
           fi
           if [ "$run_build" = "true" ] && [ "$publish" = "true" ]; then
             : "${R2_ACCESS_KEY_ID:?}"
@@ -182,11 +182,11 @@ jobs:
       - name: Prepare APK signing key
         if: ${{ steps.mode.outputs.run_build == 'true' }}
         env:
-          APK_SIGNING_KEY_B64: ${{ secrets.APK_SIGNING_KEY_B64 }}
+          APK_SIGNING_KEY: ${{ secrets.APK_SIGNING_KEY }}
         run: |
           set -euo pipefail
           key_file="${RUNNER_TEMP}/apk-signing.rsa"
-          printf '%s' "${APK_SIGNING_KEY_B64}" | base64 -d > "${key_file}"
+          printf '%s' "${APK_SIGNING_KEY}" > "${key_file}"
           chmod 600 "${key_file}"
           echo "APK_SIGNING_KEY_FILE=${key_file}" >> "$GITHUB_ENV"
 
