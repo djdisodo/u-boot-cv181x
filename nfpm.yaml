@@ -5,7 +5,7 @@ version: ${PKG_VERSION}
 release: ${PKG_RELEASE}
 section: bootloader
 priority: optional
-maintainer: ""
+maintainer: "sodo <djdisodo@gmail.com>"
 description: |
   U-Boot fip.bin package for SG2002/CV181x distroboot targets.
 homepage: https://github.com/u-boot/u-boot
