@@ -47,9 +47,8 @@ export PKG_RELEASE="$RELEASE"
 export APK_SIGNING_KEY_FILE=/path/to/apk-signing.rsa
 export APK_SIGNING_KEY_NAME=djdisodo@gmail.com.rsa.pub
 mkdir -p dist
-apk_target="dist/alpine/v3.23/main/riscv64/${PKG_NAME}-${PKG_VERSION}-r${PKG_RELEASE}.apk"
 nfpm pkg --packager apk --config nfpm.yaml \
-  --target "${apk_target}"
+  --target "dist/alpine/v3.23/main/riscv64/"
 ```
 
 Package output (release suffix is recipe commit hash):
