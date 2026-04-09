@@ -45,9 +45,11 @@ export PKG_NAME=u-boot-sg2002-milkv-duo256m-distroboot
 export PKG_VERSION="$VERSION"
 export PKG_RELEASE="$RELEASE"
 export APK_SIGNING_KEY_FILE=/path/to/apk-signing.rsa
+export APK_SIGNING_KEY_NAME=djdisodo@gmail.com.rsa.pub
 mkdir -p dist
+apk_target="dist/alpine/v3.23/main/riscv64/${PKG_NAME}-${PKG_VERSION}-r${PKG_RELEASE}.apk"
 nfpm pkg --packager apk --config nfpm.yaml \
-  --target "dist/alpine/v3.23/main/riscv64/"
+  --target "${apk_target}"
 ```
 
 Package output (release suffix is recipe commit hash):
@@ -92,6 +94,7 @@ Nightly behavior:
 - `R2_ACCOUNT_ID`
 - `R2_BUCKET`
 - `APK_SIGNING_KEY` (APK private key)
+- `APK_SIGNING_KEY_NAME` (repo variable preferred; secret fallback)
 - `INDEXBUILD_WEBHOOK_URL`
 - `INDEXBUILD_WEBHOOK_TOKEN`
 
@@ -103,6 +106,7 @@ Nightly behavior:
 - `PKG_VERSION`
 - `PKG_RELEASE`
 - `APK_SIGNING_KEY_FILE`
+- `APK_SIGNING_KEY_NAME`
 
 `PKG_VERSION` = U-Boot monthly tag (`v` prefix removed).
 
