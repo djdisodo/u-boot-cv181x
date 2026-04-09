@@ -221,25 +221,27 @@ jobs:
         run: |
           set -euo pipefail
           endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          object_root="alpine/v3.23/main/riscv64/"
           dst="s3://${R2_BUCKET}/"
           aws --endpoint-url "$endpoint" s3 cp dist/ "$dst" --recursive
-          echo "R2_OBJECT_PATH=${object_root}" >> "$GITHUB_ENV"
 
       - name: Trigger index-build webhook URL
         if: ${{ steps.mode.outputs.run_build == 'true' && steps.mode.outputs.publish == 'true' }}
         env:
           INDEXBUILD_WEBHOOK_URL: ${{ secrets.INDEXBUILD_WEBHOOK_URL }}
           INDEXBUILD_WEBHOOK_TOKEN: ${{ secrets.INDEXBUILD_WEBHOOK_TOKEN }}
-          PKG_VERSION: ${{ steps.meta.outputs.pkg_version }}
-          UBOOT_TAG: ${{ steps.meta.outputs.uboot_tag }}
+          INDEXBUILD_WEBHOOK_REF: ${{ vars.INDEXBUILD_WEBHOOK_REF || 'master' }}
         run: |
           set -euo pipefail
+          if [[ "${INDEXBUILD_WEBHOOK_URL}" == *"/actions/workflows/"*"/dispatches" ]]; then
+            payload="{\"ref\":\"${INDEXBUILD_WEBHOOK_REF}\"}"
+          else
+            payload="{\"event_type\":\"reindex\"}"
+          fi
           curl -fsSL \
             -X POST \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${INDEXBUILD_WEBHOOK_TOKEN}" \
-            --data "{\"repo\":\"${GITHUB_REPOSITORY}\",\"package\":\"${PKG_NAME}\",\"version\":\"${PKG_VERSION}\",\"u_boot_tag\":\"${UBOOT_TAG}\",\"r2_object\":\"${R2_OBJECT_PATH}\"}" \
+            --data "${payload}" \
             "$INDEXBUILD_WEBHOOK_URL"
 
       - name: Update U-Boot Tag Marker Variable
