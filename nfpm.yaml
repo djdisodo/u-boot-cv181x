@@ -12,7 +12,7 @@ homepage: https://github.com/u-boot/u-boot
 license: GPL-2.0-only
 apk:
   signature:
-    key_name: ${APK_SIGNING_KEY_NAME}
+    key_name: __APK_SIGNING_KEY_NAME__
     key_file: ${APK_SIGNING_KEY_FILE}
 contents:
   - src: out/sg2002-milkv-duo256m/fip.bin

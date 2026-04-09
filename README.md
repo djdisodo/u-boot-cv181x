@@ -98,6 +98,9 @@ Nightly behavior:
 - `INDEXBUILD_WEBHOOK_URL`
 - `INDEXBUILD_WEBHOOK_TOKEN`
 
+`APK_SIGNING_KEY_NAME` is normalized in CI (trailing `.rsa.pub` is stripped if
+present), so both `djdisodo@gmail.com` and `djdisodo@gmail.com.rsa.pub` work.
+
 ## Package metadata
 
 `nfpm.yaml` defines the package payload and metadata. CI injects:

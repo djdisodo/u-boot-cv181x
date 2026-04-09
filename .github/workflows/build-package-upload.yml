@@ -203,10 +203,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/alpine/v3.23/main/riscv64
+          apk_signing_key_name_base="${APK_SIGNING_KEY_NAME%.rsa.pub}"
+          escaped_key_name="$(printf '%s' "${apk_signing_key_name_base}" | sed 's/[\\/&]/\\&/g')"
+          nfpm_config="${RUNNER_TEMP}/nfpm.yaml"
+          sed "s/__APK_SIGNING_KEY_NAME__/${escaped_key_name}/g" nfpm.yaml > "${nfpm_config}"
           apk_target="dist/alpine/v3.23/main/riscv64/${PKG_NAME}-${PKG_VERSION}-r${PKG_RELEASE}.apk"
           nfpm pkg \
             --packager apk \
-            --config nfpm.yaml \
+            --config "${nfpm_config}" \
             --target "${apk_target}"
 
       - name: Upload workflow artifact
