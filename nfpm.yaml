@@ -16,4 +16,4 @@ apk:
     key_file: ${APK_SIGNING_KEY_FILE}
 contents:
   - src: out/sg2002-milkv-duo256m/fip.bin
-    dst: /root/fip.bin
+    dst: /boot/fip.bin
