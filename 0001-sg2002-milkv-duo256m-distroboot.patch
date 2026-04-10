@@ -151,8 +151,8 @@ Subject: [PATCH 2/2] riscv: sophgo: set overlay addr in default env, simplify
 
 ---
  configs/sg2002_milkv_duo256m_defconfig | 3 +--
- include/configs/licheerv_nano.h        | 1 +
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/configs/licheerv_nano.h        | 2 ++
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/configs/sg2002_milkv_duo256m_defconfig b/configs/sg2002_milkv_duo256m_defconfig
 index 38a5c28713b..97553474857 100644
@@ -176,14 +176,14 @@ diff --git a/include/configs/licheerv_nano.h b/include/configs/licheerv_nano.h
 index 2ea7943f66f..e02e5e7ebb8 100644
 --- a/include/configs/licheerv_nano.h
 +++ b/include/configs/licheerv_nano.h
-@@ -17,6 +17,7 @@
+@@ -17,6 +17,8 @@
  #define CFG_EXTRA_ENV_SETTINGS  "consoledev=ttyS0\0" \
  								"baudrate=115200\0" \
  								"fdt_addr_r=0x82000000\0" \
 +								"fdtoverlay_addr_r=0x84000000\0" \
  								"kernel_addr_r=0x81000000\0" \
++								"ramdisk_addr_r=0x85000000\0" \
  								"scriptaddr=0x80c00000\0" \
  								BOOTENV
 -- 
 2.50.0
-
