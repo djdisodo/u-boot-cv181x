@@ -1,8 +1,8 @@
-From 6f7a6acbab5ff110a0710b17e0ea1a226bf9df51 Mon Sep 17 00:00:00 2001
+From 29fca84ae5fc61a128e8f927230690b1d6f2055a Mon Sep 17 00:00:00 2001
 From: Recipe Maintainer <maintainer@example.com>
 Date: Tue, 7 Apr 2026 05:04:25 +0900
-Subject: [PATCH] riscv: sophgo: add sg2002 duo256m distroboot defconfig and
- dtb
+Subject: [PATCH 1/2] riscv: sophgo: add sg2002 duo256m distroboot defconfig
+ and dtb
 
 ---
  arch/riscv/dts/Makefile                 |  1 +
@@ -13,7 +13,7 @@ Subject: [PATCH] riscv: sophgo: add sg2002 duo256m distroboot defconfig and
  create mode 100644 configs/sg2002_milkv_duo256m_defconfig
 
 diff --git a/arch/riscv/dts/Makefile b/arch/riscv/dts/Makefile
-index 9b347fc3..cdebba34 100644
+index 9b347fc3b50..cdebba34e92 100644
 --- a/arch/riscv/dts/Makefile
 +++ b/arch/riscv/dts/Makefile
 @@ -7,6 +7,7 @@ dtb-$(CONFIG_TARGET_K230_CANMV) += k230-canmv.dtb
@@ -26,7 +26,7 @@ index 9b347fc3..cdebba34 100644
  dtb-$(CONFIG_TARGET_SIFIVE_UNLEASHED) += hifive-unleashed-a00.dtb
 diff --git a/arch/riscv/dts/sg2002-milkv-duo256m.dts b/arch/riscv/dts/sg2002-milkv-duo256m.dts
 new file mode 100644
-index 00000000..2133b481
+index 00000000000..2133b48146d
 --- /dev/null
 +++ b/arch/riscv/dts/sg2002-milkv-duo256m.dts
 @@ -0,0 +1,46 @@
@@ -78,7 +78,7 @@ index 00000000..2133b481
 +
 diff --git a/configs/sg2002_milkv_duo256m_defconfig b/configs/sg2002_milkv_duo256m_defconfig
 new file mode 100644
-index 00000000..6b453e56
+index 00000000000..38a5c28713b
 --- /dev/null
 +++ b/configs/sg2002_milkv_duo256m_defconfig
 @@ -0,0 +1,57 @@
@@ -99,7 +99,7 @@ index 00000000..6b453e56
 +# CONFIG_BOOTMETH_EFI_BOOTMGR is not set
 +CONFIG_SD_BOOT=y
 +CONFIG_USE_PREBOOT=y
-+CONFIG_PREBOOT="if test -z ${fdt_addr_r}; then setenv fdt_addr_r 0x83f00000; fi; if test -z ${fdtoverlay_addr_r}; then setenv fdtoverlay_addr_r 0x84000000; fi; mmc dev 0; if load mmc 0:1 ${fdt_addr_r} /dtb/sg2002-milkv-duo256m.dtb; then fdt addr ${fdt_addr_r}; fdt resize 0x2000; if load mmc 0:1 ${fdtoverlay_addr_r} /overlays/user.dtbo; then fdt apply ${fdtoverlay_addr_r}; fi; setenv fdt_addr ${fdt_addr_r}; fi"
++CONFIG_PREBOOT="if test -z \"${fdt_addr_r}\"; then setenv fdt_addr_r 0x83f00000; fi; if test -z \"${fdtoverlay_addr_r}\"; then setenv fdtoverlay_addr_r 0x84000000; fi; mmc dev 0; if load mmc 0:1 ${fdt_addr_r} /dtb/sg2002-milkv-duo256m.dtb; then fdt addr ${fdt_addr_r}; fdt resize 0x2000; if load mmc 0:1 ${fdtoverlay_addr_r} /overlays/user.dtbo; then fdt apply ${fdtoverlay_addr_r}; fi; setenv fdt_addr ${fdt_addr_r}; fi"
 +CONFIG_BOOTCOMMAND="run distro_bootcmd"
 +CONFIG_SYS_CBSIZE=512
 +CONFIG_SYS_PBSIZE=544
@@ -141,3 +141,49 @@ index 00000000..6b453e56
 +
 -- 
 2.50.0
+
+
+From 5ad59878e35baf47b432e3ddc659f1ec59c68005 Mon Sep 17 00:00:00 2001
+From: sodo <djdisodo@gmail.com>
+Date: Fri, 10 Apr 2026 16:36:04 +0900
+Subject: [PATCH 2/2] riscv: sophgo: set overlay addr in default env, simplify
+ preboot
+
+---
+ configs/sg2002_milkv_duo256m_defconfig | 3 +--
+ include/configs/licheerv_nano.h        | 1 +
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configs/sg2002_milkv_duo256m_defconfig b/configs/sg2002_milkv_duo256m_defconfig
+index 38a5c28713b..97553474857 100644
+--- a/configs/sg2002_milkv_duo256m_defconfig
++++ b/configs/sg2002_milkv_duo256m_defconfig
+@@ -15,7 +15,7 @@ CONFIG_BOOTSTD_FULL=y
+ # CONFIG_BOOTMETH_EFI_BOOTMGR is not set
+ CONFIG_SD_BOOT=y
+ CONFIG_USE_PREBOOT=y
+-CONFIG_PREBOOT="if test -z \"${fdt_addr_r}\"; then setenv fdt_addr_r 0x83f00000; fi; if test -z \"${fdtoverlay_addr_r}\"; then setenv fdtoverlay_addr_r 0x84000000; fi; mmc dev 0; if load mmc 0:1 ${fdt_addr_r} /dtb/sg2002-milkv-duo256m.dtb; then fdt addr ${fdt_addr_r}; fdt resize 0x2000; if load mmc 0:1 ${fdtoverlay_addr_r} /overlays/user.dtbo; then fdt apply ${fdtoverlay_addr_r}; fi; setenv fdt_addr ${fdt_addr_r}; fi"
++CONFIG_PREBOOT="mmc dev 0; if load mmc 0:1 ${fdt_addr_r} /dtb/sg2002-milkv-duo256m.dtb; then fdt addr ${fdt_addr_r}; fdt resize 0x2000; if load mmc 0:1 ${fdtoverlay_addr_r} /overlays/user.dtbo; then fdt apply ${fdtoverlay_addr_r}; fi; setenv fdt_addr ${fdt_addr_r}; fi"
+ CONFIG_BOOTCOMMAND="run distro_bootcmd"
+ CONFIG_SYS_CBSIZE=512
+ CONFIG_SYS_PBSIZE=544
+@@ -54,4 +54,3 @@ CONFIG_CV1800B_SPIF=y
+ CONFIG_SYSRESET=y
+ CONFIG_SYSRESET_CV1800B=y
+ CONFIG_OF_LIBFDT_OVERLAY=y
+-
+diff --git a/include/configs/licheerv_nano.h b/include/configs/licheerv_nano.h
+index 2ea7943f66f..e02e5e7ebb8 100644
+--- a/include/configs/licheerv_nano.h
++++ b/include/configs/licheerv_nano.h
+@@ -17,6 +17,7 @@
+ #define CFG_EXTRA_ENV_SETTINGS  "consoledev=ttyS0\0" \
+ 								"baudrate=115200\0" \
+ 								"fdt_addr_r=0x82000000\0" \
++								"fdtoverlay_addr_r=0x84000000\0" \
+ 								"kernel_addr_r=0x81000000\0" \
+ 								"scriptaddr=0x80c00000\0" \
+ 								BOOTENV
+-- 
+2.50.0
+
